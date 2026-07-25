@@ -1,0 +1,10 @@
+services:
+  - type: web
+    name: page-pulse
+    runtime: go
+    rootDir: pagepulse
+    buildCommand: go build -o server .
+    startCommand: ./server
+    envVars:
+      - key: PORT
+        value: 10000
