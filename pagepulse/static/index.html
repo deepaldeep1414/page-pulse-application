@@ -1,0 +1,213 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Page Pulse — a URL health check</title>
+<style>
+  :root {
+    --ink: #14171a;
+    --paper: #eef0ec;
+    --line: #14171a;
+    --pulse: #ff5a36;
+    --mono: "IBM Plex Mono", "SFMono-Regular", Consolas, monospace;
+    --sans: "IBM Plex Sans", -apple-system, BlinkMacSystemFont, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--sans);
+    line-height: 1.45;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; padding: 48px 24px 32px; }
+
+  header { margin-bottom: 32px; }
+  .eyebrow {
+    font-family: var(--mono);
+    font-size: 12px;
+    letter-spacing: 0.14em;
+    text-transform: uppercase;
+    color: var(--pulse);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--pulse); animation: beat 1.4s ease-in-out infinite; }
+  @keyframes beat { 0%,100% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.6); opacity: 0.5; } }
+  h1 {
+    font-size: 40px;
+    margin: 8px 0 4px;
+    letter-spacing: -0.02em;
+  }
+  .sub { color: #4a4f54; font-size: 15px; max-width: 46ch; }
+
+  form {
+    display: flex;
+    gap: 0;
+    border: 2px solid var(--line);
+    background: white;
+  }
+  #url {
+    flex: 1;
+    border: none;
+    padding: 14px 16px;
+    font-family: var(--mono);
+    font-size: 15px;
+    outline: none;
+    background: transparent;
+  }
+  button {
+    border: none;
+    border-left: 2px solid var(--line);
+    background: var(--ink);
+    color: var(--paper);
+    font-family: var(--mono);
+    font-size: 13px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    padding: 0 22px;
+    cursor: pointer;
+  }
+  button:hover { background: var(--pulse); }
+  button:disabled { opacity: 0.5; cursor: wait; }
+
+  #status { font-family: var(--mono); font-size: 13px; margin-top: 10px; min-height: 18px; color: #4a4f54; }
+  #status.err { color: #b3271f; }
+
+  #report {
+    margin-top: 28px;
+    border: 2px solid var(--line);
+    background: white;
+    display: none;
+  }
+  #report.show { display: block; }
+  .row {
+    display: grid;
+    grid-template-columns: 180px 1fr;
+    border-top: 1px solid #d7d9d3;
+    font-size: 14px;
+  }
+  .row:first-child { border-top: none; }
+  .row .k {
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: #6b7075;
+    padding: 12px 16px;
+    background: #f6f6f2;
+  }
+  .row .v { padding: 12px 16px; word-break: break-word; }
+  .status-ok { color: #1a7d3a; font-weight: 600; }
+  .status-bad { color: #b3271f; font-weight: 600; }
+  .flag { color: #b3271f; font-weight: 600; }
+
+  footer {
+    margin-top: 48px;
+    padding-top: 16px;
+    border-top: 1px solid #c9cbc5;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: #6b7075;
+  }
+  footer a { color: var(--pulse); }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div class="eyebrow"><span class="dot"></span> page pulse</div>
+      <h1>Point it at a URL.</h1>
+      <p class="sub">Fetches the page, checks its vitals — status, speed, title, alt text, word count — and tells you plainly what's wrong.</p>
+    </header>
+
+    <form id="form">
+      <input id="url" type="text" placeholder="https://example.com" autocomplete="off" />
+      <button id="submit" type="submit">Check</button>
+    </form>
+    <div id="status"></div>
+
+    <div id="report">
+      <div class="row"><div class="k">URL</div><div class="v" id="r-url"></div></div>
+      <div class="row"><div class="k">Status</div><div class="v" id="r-status"></div></div>
+      <div class="row"><div class="k">Response time</div><div class="v" id="r-time"></div></div>
+      <div class="row"><div class="k">Title</div><div class="v" id="r-title"></div></div>
+      <div class="row"><div class="k">Meta description</div><div class="v" id="r-desc"></div></div>
+      <div class="row"><div class="k">H1 count</div><div class="v" id="r-h1"></div></div>
+      <div class="row"><div class="k">Images</div><div class="v" id="r-images"></div></div>
+      <div class="row"><div class="k">Word count</div><div class="v" id="r-words"></div></div>
+    </div>
+
+    <footer>
+      Built for Digital Heroes Training Task, linked to
+      <a href="https://digitalheroesco.com" target="_blank" rel="noopener">digitalheroesco.com</a>
+    </footer>
+  </div>
+
+<script>
+const form = document.getElementById('form');
+const input = document.getElementById('url');
+const button = document.getElementById('submit');
+const statusEl = document.getElementById('status');
+const report = document.getElementById('report');
+
+function setStatus(msg, isErr) {
+  statusEl.textContent = msg || '';
+  statusEl.className = isErr ? 'err' : '';
+}
+
+function fill(id, text) {
+  document.getElementById(id).textContent = text;
+}
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const url = input.value.trim();
+  if (!url) { setStatus('Enter a URL first.', true); return; }
+
+  button.disabled = true;
+  report.classList.remove('show');
+  setStatus('Checking…', false);
+
+  try {
+    const res = await fetch('/api/audit?url=' + encodeURIComponent(url));
+    const data = await res.json();
+
+    if (!res.ok) {
+      setStatus(data.error || 'Something went wrong.', true);
+      return;
+    }
+
+    setStatus('Done.', false);
+    fill('r-url', data.url);
+
+    const statusCode = data.statusCode;
+    const statusEl2 = document.getElementById('r-status');
+    statusEl2.textContent = statusCode + (statusCode >= 200 && statusCode < 300 ? ' OK' : '');
+    statusEl2.className = 'v ' + (statusCode >= 200 && statusCode < 300 ? 'status-ok' : 'status-bad');
+
+    fill('r-time', data.responseTimeMs + ' ms');
+    fill('r-title', data.title || '(none found)');
+    fill('r-desc', data.metaDescription || '(none found)');
+    fill('r-h1', data.h1Count);
+
+    const imagesEl = document.getElementById('r-images');
+    imagesEl.innerHTML = data.imagesTotal + ' total' +
+      (data.imagesMissingAlt > 0
+        ? ' — <span class="flag">' + data.imagesMissingAlt + ' missing alt text</span>'
+        : ' — all have alt text');
+
+    fill('r-words', data.wordCount.toLocaleString());
+
+    report.classList.add('show');
+  } catch (err) {
+    setStatus('Network error talking to the audit API.', true);
+  } finally {
+    button.disabled = false;
+  }
+});
+</script>
+</body>
+</html>
