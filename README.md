@@ -11,9 +11,10 @@ A fast and lightweight website auditing tool built with **Go** that analyzes any
 
 ## 📸 Preview
 
-![PagePulse Screenshot](./screenshot.png)
+![PagePulse Screenshot](./screenshot.png)<img width="635" height="295" alt="Screenshot 2026-07-26 015447" src="https://github.com/user-attachments/assets/cedff610-957e-402c-8f9d-674dd6c35971" />
 
-> Save the screenshot you uploaded as **`screenshot.png`** in the root of your repository.
+
+
 
 ---
 
